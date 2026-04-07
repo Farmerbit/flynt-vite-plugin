@@ -10,7 +10,7 @@
 ## Installation
 
 ```bash
-npm install @farmerbit/vite-plugin
+npm install @farmerbit/vite-plugin#v1.0.0
 ```
 
 ## Usage
