@@ -20,7 +20,7 @@ Start by adding the base plugin to your Vite config:
 ```js
 // vite.config.js
 import { defineConfig } from 'vite';
-import { wordpressPlugin } from '@flynt/vite-plugin';
+import { wordpressPlugin } from '@farmerbit/vite-plugin';
 
 export default defineConfig({
   plugins: [wordpressPlugin()],
