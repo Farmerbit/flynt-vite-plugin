@@ -1,166 +1,176 @@
 import {
-    defaultRequestToExternal,
-    defaultRequestToHandle,
-} from '@wordpress/dependency-extraction-webpack-plugin/lib/util';
-import type { Plugin as VitePlugin, Rolldown } from 'vite';
-import type { WordPressPluginConfig } from '../types.js';
-import { SUPPORTED_EXTENSIONS } from '../constants.js';
-import { isExemptPackage } from '../utils.js';
-import { resolveImport } from './transform.js';
-import { createHmrCode, shouldInjectHmr } from './hmr.js';
+  defaultRequestToExternal,
+  defaultRequestToHandle
+} from '@wordpress/dependency-extraction-webpack-plugin/lib/util'
+import { writeFileSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+import type { Plugin as VitePlugin, Rolldown } from 'vite'
+import type { WordPressPluginConfig } from '../types.js'
+import { SUPPORTED_EXTENSIONS } from '../constants.js'
+import { isExemptPackage } from '../utils.js'
+import { resolveImport } from './transform.js'
+import { createHmrCode, shouldInjectHmr } from './hmr.js'
 
 /**
  * Transform WordPress imports into global references and
  * generate a dependency manifest for enqueuing.
  */
 export function wordpressPlugin(
-    config: WordPressPluginConfig = {}
+  config: WordPressPluginConfig = {}
 ): VitePlugin {
-    const extensions = config.extensions ?? SUPPORTED_EXTENSIONS;
-    const externalMappings = config.externalMappings ?? {};
-    const dependencies = new Set<string>();
+  const extensions = config.extensions ?? SUPPORTED_EXTENSIONS
+  const externalMappings = config.externalMappings ?? {}
+  const dependencies = new Set<string>()
 
-    const hmrConfig = {
-        enabled: true,
-        editorPattern: /editor/ as string | RegExp,
-        iframeName: 'editor-canvas',
-        ...config.hmr,
-    };
+  const hmrConfig = {
+    enabled: true,
+    editorPattern: /editor/ as string | RegExp,
+    iframeName: 'editor-canvas',
+    ...config.hmr
+  }
 
-    const hmrCode = createHmrCode(hmrConfig.iframeName);
+  const hmrCode = createHmrCode(hmrConfig.iframeName)
 
-    return {
-        name: 'wordpress-plugin',
-        enforce: 'pre',
+  let outDir = ''
+  let isServe = false
+  let lastWrittenDeps = ''
 
-        options(opts: Rolldown.InputOptions) {
-            return {
-                ...opts,
-                external: (id: string): boolean => {
-                    if (typeof id !== 'string') return false;
+  function writeDepsToDisk() {
+    const json = JSON.stringify([...dependencies], null, 2)
+    if (json === lastWrittenDeps) return
+    lastWrittenDeps = json
+    mkdirSync(outDir, { recursive: true })
+    writeFileSync(join(outDir, 'editor.deps.json'), json)
+  }
 
-                    if (id in externalMappings) {
-                        return true;
-                    }
+  return {
+    name: 'wordpress-plugin',
+    enforce: 'pre',
 
-                    return (
-                        id.startsWith('@wordpress/') &&
-                        !isExemptPackage(id)
-                    );
-                },
-            };
-        },
+    configResolved(resolvedConfig) {
+      outDir = resolvedConfig.build.outDir
+      isServe = resolvedConfig.command === 'serve'
+    },
 
-        resolveId(id: string) {
-            if (id in externalMappings) {
-                const mapping = externalMappings[id];
-                dependencies.add(mapping.handle);
-                return { id, external: true };
-            }
+    configureServer() {
+      writeDepsToDisk()
+    },
 
-            if (!id?.startsWith('@wordpress/') || isExemptPackage(id))
-                return null;
+    options(opts: Rolldown.InputOptions) {
+      return {
+        ...opts,
+        external: (id: string): boolean => {
+          if (typeof id !== 'string') return false
 
-            const [external, handle] = [
-                defaultRequestToExternal(id),
-                defaultRequestToHandle(id),
-            ];
+          if (id in externalMappings) {
+            return true
+          }
 
-            if (!external || !handle) return null;
+          return id.startsWith('@wordpress/') && !isExemptPackage(id)
+        }
+      }
+    },
 
-            dependencies.add(handle);
+    resolveId(id: string) {
+      if (id in externalMappings) {
+        const mapping = externalMappings[id]
+        dependencies.add(mapping.handle)
+        return { id, external: true }
+      }
 
-            return { id, external: true };
-        },
+      if (!id?.startsWith('@wordpress/') || isExemptPackage(id)) return null
 
-        transform(code: string, id: string) {
-            const cleanId = id.split('?')[0];
-            if (!extensions.some((ext) => cleanId.endsWith(ext))) return null;
+      const [external, handle] = [
+        defaultRequestToExternal(id),
+        defaultRequestToHandle(id)
+      ]
 
-            let transformedCode = code;
+      if (!external || !handle) return null
 
-            // Handle custom external mappings
-            for (const [packageName, mapping] of Object.entries(
-                externalMappings
-            )) {
-                const customImportRegex = new RegExp(
-                    `^[\\s\\n]*import[\\s\\n]+(?:([^;'"]+?)[\\s\\n]+from[\\s\\n]+)?['"]${packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"][\\s\\n]*;?`,
-                    'gm'
-                );
-                let match;
+      dependencies.add(handle)
 
-                while ((match = customImportRegex.exec(code)) !== null) {
-                    const [fullMatch, imports] = match;
-                    dependencies.add(mapping.handle);
+      return { id, external: true }
+    },
 
-                    const replacement = resolveImport(imports, mapping.global);
+    transform(code: string, id: string) {
+      const cleanId = id.split('?')[0]
+      if (!extensions.some((ext) => cleanId.endsWith(ext))) return null
 
-                    if (replacement) {
-                        transformedCode = transformedCode.replace(
-                            fullMatch,
-                            replacement
-                        );
-                    } else {
-                        transformedCode = transformedCode.replace(
-                            fullMatch,
-                            ''
-                        );
-                    }
-                }
-            }
+      let transformedCode = code
 
-            // Handle WordPress imports
-            const importRegex =
-                /^[\s\n]*import[\s\n]+(?:([^;'"]+?)[\s\n]+from[\s\n]+)?['"]@wordpress\/([^'"]+)['"][\s\n]*;?/gm;
+      // Handle custom external mappings
+      for (const [packageName, mapping] of Object.entries(externalMappings)) {
+        const customImportRegex = new RegExp(
+          `^[\\s\\n]*import[\\s\\n]+(?:([^;'"]+?)[\\s\\n]+from[\\s\\n]+)?['"]${packageName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"][\\s\\n]*;?`,
+          'gm'
+        )
+        let match
 
-            let match;
+        while ((match = customImportRegex.exec(code)) !== null) {
+          const [fullMatch, imports] = match
+          dependencies.add(mapping.handle)
 
-            while ((match = importRegex.exec(code)) !== null) {
-                const [fullMatch, imports, pkg] = match;
+          const replacement = resolveImport(imports, mapping.global)
 
-                if (isExemptPackage(`@wordpress/${pkg}`)) {
-                    continue;
-                }
+          if (replacement) {
+            transformedCode = transformedCode.replace(fullMatch, replacement)
+          } else {
+            transformedCode = transformedCode.replace(fullMatch, '')
+          }
+        }
+      }
 
-                const external = defaultRequestToExternal(
-                    `@wordpress/${pkg}`
-                );
-                const handle = defaultRequestToHandle(`@wordpress/${pkg}`);
+      // Handle WordPress imports
+      const importRegex =
+        /^[\s\n]*import[\s\n]+(?:([^;'"]+?)[\s\n]+from[\s\n]+)?['"]@wordpress\/([^'"]+)['"][\s\n]*;?/gm
 
-                if (!external || !handle) continue;
+      let match
 
-                dependencies.add(handle);
+      while ((match = importRegex.exec(code)) !== null) {
+        const [fullMatch, imports, pkg] = match
 
-                const replacement = resolveImport(imports, external);
+        if (isExemptPackage(`@wordpress/${pkg}`)) {
+          continue
+        }
 
-                if (replacement) {
-                    transformedCode = transformedCode.replace(
-                        fullMatch,
-                        replacement
-                    );
-                } else {
-                    transformedCode = transformedCode.replace(fullMatch, '');
-                }
-            }
+        const external = defaultRequestToExternal(`@wordpress/${pkg}`)
+        const handle = defaultRequestToHandle(`@wordpress/${pkg}`)
 
-            if (shouldInjectHmr(transformedCode, id, hmrConfig)) {
-                transformedCode = `${transformedCode}\n${hmrCode}`;
-            }
+        if (!external || !handle) continue
 
-            return {
-                code: transformedCode,
-                map: null,
-                moduleType: 'js',
-            };
-        },
+        dependencies.add(handle)
 
-        generateBundle() {
-            this.emitFile({
-                type: 'asset',
-                name: 'editor.deps.json',
-                originalFileName: 'editor.deps.json',
-                source: JSON.stringify([...dependencies], null, 2),
-            });
-        },
-    };
+        const replacement = resolveImport(imports, external)
+
+        if (replacement) {
+          transformedCode = transformedCode.replace(fullMatch, replacement)
+        } else {
+          transformedCode = transformedCode.replace(fullMatch, '')
+        }
+      }
+
+      if (shouldInjectHmr(transformedCode, id, hmrConfig)) {
+        transformedCode = `${transformedCode}\n${hmrCode}`
+      }
+
+      if (isServe) {
+        writeDepsToDisk()
+      }
+
+      return {
+        code: transformedCode,
+        map: null,
+        moduleType: 'js'
+      }
+    },
+
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        name: 'editor.deps.json',
+        originalFileName: 'editor.deps.json',
+        source: JSON.stringify([...dependencies], null, 2)
+      })
+    }
+  }
 }
