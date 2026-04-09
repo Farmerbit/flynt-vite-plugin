@@ -613,12 +613,12 @@ function buildSettings(params) {
 function wordpressThemeJson(config = {}) {
   const {
     tailwindConfig,
-    disableTailwindColors = false,
-    disableTailwindFonts = false,
-    disableTailwindFontSizes = false,
-    disableTailwindBorderRadius = false,
+    disableTailwindColors = true,
+    disableTailwindFonts = true,
+    disableTailwindFontSizes = true,
+    disableTailwindBorderRadius = true,
     baseThemeJsonPath = "./theme.json",
-    outputPath = "assets/theme.json",
+    outputPath = "theme.json",
     cssFile = "main.scss",
     shadeLabels,
     fontLabels,

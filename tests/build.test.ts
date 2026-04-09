@@ -21,7 +21,7 @@ async function runBuild(pluginOptions = {}, baseThemeJson = 'theme.json') {
         ],
         build: {
             rolldownOptions: {
-                input: path.join(fixtureDir, 'app.css'),
+                input: path.join(fixtureDir, 'main.scss'),
             },
             outDir,
             emptyOutDir: true,
@@ -42,8 +42,12 @@ describe('vite build integration', () => {
         it('should extract all 11 shades for each color family', async () => {
             const themeJson = await runBuild();
             const palette = themeJson.settings.color.palette;
-            const expectedShades = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
-            const redColors = palette.filter((c: any) => c.slug.startsWith('red-'));
+            const expectedShades = [
+                50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950,
+            ];
+            const redColors = palette.filter((c: any) =>
+                c.slug.startsWith('red-')
+            );
 
             expect(redColors).toHaveLength(11);
 
@@ -62,21 +66,43 @@ describe('vite build integration', () => {
             const palette = themeJson.settings.color.palette;
             const slugs = palette.map((c: any) => c.slug);
             const expectedFamilies = [
-                'red', 'orange', 'amber', 'yellow', 'lime', 'green',
-                'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo',
-                'violet', 'purple', 'fuchsia', 'pink', 'rose',
-                'slate', 'gray', 'zinc', 'neutral', 'stone',
+                'red',
+                'orange',
+                'amber',
+                'yellow',
+                'lime',
+                'green',
+                'emerald',
+                'teal',
+                'cyan',
+                'sky',
+                'blue',
+                'indigo',
+                'violet',
+                'purple',
+                'fuchsia',
+                'pink',
+                'rose',
+                'slate',
+                'gray',
+                'zinc',
+                'neutral',
+                'stone',
             ];
 
             for (const family of expectedFamilies) {
-                expect(slugs.some((s: string) => s.startsWith(`${family}-`))).toBe(true);
+                expect(
+                    slugs.some((s: string) => s.startsWith(`${family}-`))
+                ).toBe(true);
             }
         });
 
         it('should use oklch color format', async () => {
             const themeJson = await runBuild();
             const palette = themeJson.settings.color.palette;
-            const colorsWithShades = palette.filter((c: any) => c.slug.includes('-'));
+            const colorsWithShades = palette.filter((c: any) =>
+                c.slug.includes('-')
+            );
 
             for (const color of colorsWithShades) {
                 expect(color.color).toMatch(/^oklch\(/);
@@ -129,7 +155,21 @@ describe('vite build integration', () => {
 
             expect(sizes).toHaveLength(13);
 
-            const expectedSizes = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', '8xl', '9xl'];
+            const expectedSizes = [
+                'xs',
+                'sm',
+                'base',
+                'lg',
+                'xl',
+                '2xl',
+                '3xl',
+                '4xl',
+                '5xl',
+                '6xl',
+                '7xl',
+                '8xl',
+                '9xl',
+            ];
 
             for (const size of expectedSizes) {
                 expect(sizes).toContainEqual(
@@ -149,7 +189,9 @@ describe('vite build integration', () => {
         });
 
         it('should not include font sizes when disabled', async () => {
-            const themeJson = await runBuild({ disableTailwindFontSizes: true });
+            const themeJson = await runBuild({
+                disableTailwindFontSizes: true,
+            });
 
             expect(themeJson.settings.typography.fontSizes).toBeUndefined();
         });
@@ -157,12 +199,23 @@ describe('vite build integration', () => {
 
     describe('border radius', () => {
         it('should extract all 8 border radius sizes', async () => {
-            const themeJson = await runBuild({ disableTailwindBorderRadius: false });
+            const themeJson = await runBuild({
+                disableTailwindBorderRadius: false,
+            });
             const radiusSizes = themeJson.settings.border?.radiusSizes;
 
             expect(radiusSizes).toHaveLength(8);
 
-            const expectedSlugs = ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl'];
+            const expectedSlugs = [
+                'xs',
+                'sm',
+                'md',
+                'lg',
+                'xl',
+                '2xl',
+                '3xl',
+                '4xl',
+            ];
 
             for (const slug of expectedSlugs) {
                 expect(radiusSizes).toContainEqual(
@@ -172,7 +225,9 @@ describe('vite build integration', () => {
         });
 
         it('should sort border radius sizes from smallest to largest', async () => {
-            const themeJson = await runBuild({ disableTailwindBorderRadius: false });
+            const themeJson = await runBuild({
+                disableTailwindBorderRadius: false,
+            });
             const radiusSizes = themeJson.settings.border?.radiusSizes;
             const remValues = radiusSizes!.map((s: any) => parseFloat(s.size));
 
@@ -182,7 +237,9 @@ describe('vite build integration', () => {
         });
 
         it('should not include border radius when disabled', async () => {
-            const themeJson = await runBuild({ disableTailwindBorderRadius: true });
+            const themeJson = await runBuild({
+                disableTailwindBorderRadius: true,
+            });
 
             expect(themeJson.settings.border?.radiusSizes).toBeUndefined();
         });
@@ -201,14 +258,18 @@ describe('vite build integration', () => {
         it('should include the __processed__ marker', async () => {
             const themeJson = await runBuild();
 
-            expect(themeJson.__processed__).toBe('This file was generated using Vite');
+            expect(themeJson.__processed__).toBe(
+                'This file was generated using Vite'
+            );
         });
 
         it('should remove __preprocessed__ marker from base', async () => {
             const themeJson = await runBuild({}, 'theme-with-base.json');
 
             expect(themeJson.__preprocessed__).toBeUndefined();
-            expect(themeJson.__processed__).toBe('This file was generated using Vite');
+            expect(themeJson.__processed__).toBe(
+                'This file was generated using Vite'
+            );
         });
     });
 
@@ -238,7 +299,10 @@ describe('vite build integration', () => {
                 expect.objectContaining({ slug: 'brand' })
             );
             expect(fonts).toContainEqual(
-                expect.objectContaining({ slug: 'sans', fontFamily: 'CustomSans, sans-serif' })
+                expect.objectContaining({
+                    slug: 'sans',
+                    fontFamily: 'CustomSans, sans-serif',
+                })
             );
         });
 
@@ -281,7 +345,9 @@ describe('vite build integration', () => {
             expect(palette).toContainEqual(
                 expect.objectContaining({ slug: 'brand', color: '#ff6600' })
             );
-            expect(palette.some((c: any) => c.slug.startsWith('blue-'))).toBe(true);
+            expect(palette.some((c: any) => c.slug.startsWith('blue-'))).toBe(
+                true
+            );
         });
 
         it('should dedupe colors by slug with base values winning', async () => {

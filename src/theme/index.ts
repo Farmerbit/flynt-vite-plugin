@@ -18,12 +18,12 @@ import { buildSettings } from './settings.js';
 export function wordpressThemeJson(config: ThemeJsonConfig = {}): VitePlugin {
     const {
         tailwindConfig,
-        disableTailwindColors = false,
-        disableTailwindFonts = false,
-        disableTailwindFontSizes = false,
-        disableTailwindBorderRadius = false,
+        disableTailwindColors = true,
+        disableTailwindFonts = true,
+        disableTailwindFontSizes = true,
+        disableTailwindBorderRadius = true,
         baseThemeJsonPath = './theme.json',
-        outputPath = 'assets/theme.json',
+        outputPath = 'theme.json',
         cssFile = 'main.scss',
         shadeLabels,
         fontLabels,
@@ -60,7 +60,7 @@ export function wordpressThemeJson(config: ThemeJsonConfig = {}): VitePlugin {
         async generateBundle() {
             try {
                 const baseThemeJson = JSON.parse(
-                    fs.readFileSync(path.resolve(baseThemeJsonPath), 'utf8'),
+                    fs.readFileSync(path.resolve(baseThemeJsonPath), 'utf8')
                 ) as ThemeJson;
 
                 const themeContent = cssContent
@@ -72,19 +72,19 @@ export function wordpressThemeJson(config: ThemeJsonConfig = {}): VitePlugin {
                 // Extract CSS variables from @theme block
                 const colorVars = extractVariables(
                     CSS_VARIABLE_PATTERNS.COLOR,
-                    themeContent,
+                    themeContent
                 );
                 const fontVars = extractVariables(
                     CSS_VARIABLE_PATTERNS.FONT_FAMILY,
-                    themeContent,
+                    themeContent
                 );
                 const fontSizeVars = extractVariables(
                     CSS_VARIABLE_PATTERNS.FONT_SIZE,
-                    themeContent,
+                    themeContent
                 );
                 const borderRadiusVars = extractVariables(
                     CSS_VARIABLE_PATTERNS.BORDER_RADIUS,
-                    themeContent,
+                    themeContent
                 );
 
                 // Resolve entries from both sources
@@ -100,7 +100,7 @@ export function wordpressThemeJson(config: ThemeJsonConfig = {}): VitePlugin {
                     ? resolveFontSizes(
                           fontSizeVars,
                           theme?.fontSize,
-                          fontSizeLabels,
+                          fontSizeLabels
                       )
                     : undefined;
 
@@ -108,7 +108,7 @@ export function wordpressThemeJson(config: ThemeJsonConfig = {}): VitePlugin {
                     ? resolveBorderRadii(
                           borderRadiusVars,
                           theme?.borderRadius,
-                          borderRadiusLabels,
+                          borderRadiusLabels
                       )
                     : undefined;
 
